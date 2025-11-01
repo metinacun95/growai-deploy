@@ -1,27 +1,23 @@
 databases:
   - name: growai-db
     databaseName: devgrowai
-    ipAllowList: []  # public erişim yok; sadece Render içinden bağlanılsın
+    ipAllowList: []
 
 services:
-  # 🔵 Keycloak (Web Service - Docker)
+  # 🔵 Keycloak
   - type: web
     name: keycloak
     env: docker
     plan: free
     numInstances: 1
-    dockerCommand: >
-      start --import-realm
+    dockerCommand: "start-dev"
     image:
       url: quay.io/keycloak/keycloak:26.1
     envVars:
-      # Admin
       - key: KEYCLOAK_ADMIN
         value: admin
       - key: KEYCLOAK_ADMIN_PASSWORD
         value: admin
-
-      # DB config (Render DB'den otomatik)
       - key: KC_DB
         value: postgres
       - key: KC_DB_URL_HOST
@@ -44,36 +40,19 @@ services:
         fromDatabase:
           name: growai-db
           property: password
-
-      # Health & logs
       - key: KC_HEALTH_ENABLED
         value: "true"
       - key: KC_METRICS_ENABLED
         value: "true"
-
-      # Prod mod (dev yerine)
-      # start-dev değil; render/dockerCommand'da 'start --import-realm' dedik
-      # Hostname'i Render dış URL'si üzerinden otomatik algılamasını istiyoruz
       - key: KC_HOSTNAME_STRICT
         value: "false"
       - key: KC_HOSTNAME_STRICT_HTTPS
         value: "false"
-
-    # realm export'unu repo'ya eklediğini varsayıyorum (aynı klasörde)
-    # Örn: realm-export.json
-    staticPublishPath: ""   # (docker olduğu için kullanılmıyor)
-    disk:
-      name: kc-import
-      mountPath: /opt/keycloak/data/import
-      sizeGB: 1
-    # Disk boş geleceği için import dosyasını image içine değil repo'ya koyuyoruz.
-    # Render Docker servisinde 'files' section yok; bu yüzden realm dosyasını image ile ship etmiyorsan
-    # küçük bir init script ile curl/wget koyabilirsin. Kolayı: realm'ı Keycloak UI'dan bir kez oluştur.
-
-    # Health check (opsiyonel)
+      - key: TZ
+        value: Europe/Istanbul
     healthCheckPath: /
 
-  # 🟠 Backend (Web Service - Docker)
+  # 🟠 Backend (Spring Boot)
   - type: web
     name: growai-backend
     env: docker
@@ -82,9 +61,7 @@ services:
     image:
       url: metinacun95/growai:latest
     envVars:
-      # DB
       - key: SPRING_DATASOURCE_URL
-        # jdbc:postgresql://host:port/db
         value: jdbc:postgresql://$(PG_HOST):$(PG_PORT)/$(PG_DB)
       - key: SPRING_DATASOURCE_USERNAME
         fromDatabase:
@@ -106,33 +83,17 @@ services:
         fromDatabase:
           name: growai-db
           property: database
-
-      # Keycloak issuer: Keycloak servisinin public URL'si + /realms/growai
+      # Keycloak URL (manuel, ilk deploy sonrası public URL'ini yaz)
       - key: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI
-        fromService:
-          name: keycloak
-          type: web
-          property: url
-          # backend'de: ${SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI}/realms/growai
-      - key: ISSUER_REALM_PATH
-        value: /realms/growai
-      - key: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI
-        # JWK set URI otomatik issuer'dan bulunur; istersen açık ver:
-        fromService:
-          name: keycloak
-          type: web
-          property: url
-
+        value: https://keycloak-<deployed-name>.onrender.com/realms/growai
       - key: SPRING_PROFILES_ACTIVE
         value: docker
       - key: TZ
         value: Europe/Istanbul
-
-    # Render, 10000 dışı portları reverse proxy'ler; Docker imajın 8081 dinliyorsa sorun yok.
     healthCheckPath: /actuator/health
     autoDeploy: true
 
-  # 🟣 Frontend (Web Service - Docker)
+  # 🟣 Frontend (React)
   - type: web
     name: growai-frontend
     env: docker
@@ -141,14 +102,9 @@ services:
     image:
       url: metinacun95/growai-fe:latest
     envVars:
-      # VITE_API_BASE_URL = backend'in public URL'si
       - key: VITE_API_BASE_URL
-        fromService:
-          name: growai-backend
-          type: web
-          property: url
+        value: https://growai-backend-<deployed-name>.onrender.com
       - key: TZ
         value: Europe/Istanbul
-    # Docker imajın 80'de serve ediyorsa auto ok.
     healthCheckPath: /
     autoDeploy: true
