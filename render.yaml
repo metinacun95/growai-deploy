@@ -6,7 +6,6 @@ databases:
 services:
   - type: web
     name: keycloak
-    env: docker
     plan: free
     numInstances: 1
     dockerCommand: "start-dev"
@@ -53,7 +52,6 @@ services:
 
   - type: web
     name: growai-backend
-    env: docker
     plan: free
     numInstances: 1
     image:
@@ -90,7 +88,6 @@ services:
 
   - type: web
     name: growai-frontend
-    env: docker
     plan: free
     numInstances: 1
     image:
