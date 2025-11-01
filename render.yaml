@@ -4,7 +4,6 @@ databases:
     ipAllowList: []
 
 services:
-  # 🔵 Keycloak
   - type: web
     name: keycloak
     env: docker
@@ -52,7 +51,6 @@ services:
         value: Europe/Istanbul
     healthCheckPath: /
 
-  # 🟠 Backend (Spring Boot)
   - type: web
     name: growai-backend
     env: docker
@@ -83,9 +81,6 @@ services:
         fromDatabase:
           name: growai-db
           property: database
-      # Keycloak URL (manuel, ilk deploy sonrası public URL'ini yaz)
-      - key: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI
-        value: https://keycloak-<deployed-name>.onrender.com/realms/growai
       - key: SPRING_PROFILES_ACTIVE
         value: docker
       - key: TZ
@@ -93,7 +88,6 @@ services:
     healthCheckPath: /actuator/health
     autoDeploy: true
 
-  # 🟣 Frontend (React)
   - type: web
     name: growai-frontend
     env: docker
@@ -103,7 +97,7 @@ services:
       url: metinacun95/growai-fe:latest
     envVars:
       - key: VITE_API_BASE_URL
-        value: https://growai-backend-<deployed-name>.onrender.com
+        value: https://growai-backend.onrender.com
       - key: TZ
         value: Europe/Istanbul
     healthCheckPath: /
